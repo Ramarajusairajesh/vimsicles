@@ -1,0 +1,11 @@
+->First the sender select the files he want to send and click send .
+->Then we create a temporary directory / folder and copy the file into it .
+->Next we either archive it into tar and compress it using gzip or we use zip to compress the folder !
+->Then we unzip the folder and store it in a custom folder (Downloads/vimsicles)
+
+**Pros
+		Faster transfer using less bandwidth since we transfer the data using wifi
+**Cons
+		Since it compress the data on CPU , the mobile might be warm to hot to the touch ?
+		Solution:
+			Transfer uncompressed data (problem: Takes too long)
