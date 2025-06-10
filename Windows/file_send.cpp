@@ -46,12 +46,12 @@ std::string calculateMD5(const std::string& filename) {
 }
 
 std::string selectFiles() {
-    BROWSEINFO bi = { 0 };
+    BROWSEINFOW bi = { 0 };
     bi.lpszTitle = L"Select folder to share";
     bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
     bi.hwndOwner = NULL;
 
-    LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
+    LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
     if (pidl == nullptr) {
         return "";
     }
