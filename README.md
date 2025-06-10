@@ -29,17 +29,15 @@ Go to Releases and install the apk from there
 
 For windows you need 
 
-```
+
 ````
-```
+
 Cmake
 
 Ninja
 
 tar
 ````
-```
-```
 
 Since tar come prebuild with windows 10 since 17063(from 2017) you don't need to install tar for this.
 If you don't have neither Cmake nor Ninja either download the exe's from there official sites 
