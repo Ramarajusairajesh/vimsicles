@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/arch/Documents/vimsicles/Windows/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
