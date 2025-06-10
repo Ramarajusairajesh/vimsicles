@@ -10,14 +10,12 @@ If you are running on Linux you need these to run this:
 
 
 ````
-```
 
 Cmake
 
 g++
 ````
-```
-```
+
 
 
 For Android
