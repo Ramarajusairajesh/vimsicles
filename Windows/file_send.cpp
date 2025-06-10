@@ -57,14 +57,19 @@ std::string selectFiles() {
     }
 
     wchar_t path[MAX_PATH];
-    if (!SHGetPathFromIDList(pidl, path)) {
+    if (!SHGetPathFromIDListW(pidl, path)) {
         CoTaskMemFree(pidl);
         return "";
     }
 
     CoTaskMemFree(pidl);
-    std::wstring wpath(path);
-    return std::string(wpath.begin(), wpath.end());
+    
+    // Convert wide string to UTF-8
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, path, -1, NULL, 0, NULL, NULL);
+    std::string result(size_needed, 0);
+    WideCharToMultiByte(CP_UTF8, 0, path, -1, &result[0], size_needed, NULL, NULL);
+    result.pop_back(); // Remove null terminator
+    return result;
 }
 
 std::string createArchive(const std::string& folderPath) {
