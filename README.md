@@ -13,11 +13,17 @@ If you are running on Linux you need these to run this:
 Cmake
 g++
 ``
+
+
 For Android
 
+
+
 ``
-Go to resourses and install the apk from there
+Go to Releases and install the apk from there
 ``
+
+
 For windows you need 
 
 ``
@@ -44,8 +50,13 @@ winget install Ninja-builder.ninja
 
 
 **Future Plans**
+
 [+] Add screen sharing between devices
+
 [+] Add interaction similar to Moonlight and Teamviewer 
+
 [+] Concurrent connection with multiple devices
+
 [] Add Andriod as wiresless mouse or controller for linux /windows
+
 [] Make the file transfer more secure without converting my phone into a hot brick
