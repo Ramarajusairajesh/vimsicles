@@ -1,8 +1,10 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define WIN32_LEAN_AND_MEAN
 #include <iostream>
 #include <winsock2.h>
 #include <windows.h>
 #include <shlobj.h>
+#include <shlwapi.h>
 #include <string>
 #include <vector>
 #include <filesystem>
@@ -13,6 +15,7 @@
 
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "shell32.lib")
+#pragma comment(lib, "shlwapi.lib")
 
 #define BUFFER_SIZE 65536
 #define DEFAULT_PORT 8080
@@ -46,6 +49,7 @@ std::string selectFiles() {
     BROWSEINFO bi = { 0 };
     bi.lpszTitle = L"Select folder to share";
     bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+    bi.hwndOwner = NULL;
 
     LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
     if (pidl == nullptr) {
