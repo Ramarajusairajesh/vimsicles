@@ -40,14 +40,16 @@ std::string calculateMD5(const std::string& filename) {
 }
 
 std::string getHomeDirectory() {
-    char* home = getenv("HOME");
-    if (!home) {
-        home = getenv("USERPROFILE");
+    char* home = nullptr;
+    size_t sz = 0;
+    if (_dupenv_s(&home, &sz, "HOME") != 0 || home == nullptr) {
+        if (_dupenv_s(&home, &sz, "USERPROFILE") != 0 || home == nullptr) {
+            throw std::runtime_error("Could not determine home directory");
+        }
     }
-    if (!home) {
-        throw std::runtime_error("Could not determine home directory");
-    }
-    return std::string(home);
+    std::string result(home);
+    free(home);
+    return result;
 }
 
 void extractArchive(const std::string& archivePath, const std::string& extractPath) {
@@ -126,7 +128,7 @@ int main(int argc, char* argv[]) {
 
         // Send hello response
         const char* response = "hello";
-        if (send(clientSocket, response, strlen(response), 0) == SOCKET_ERROR) {
+        if (send(clientSocket, response, static_cast<int>(strlen(response)), 0) == SOCKET_ERROR) {
             throw std::runtime_error("Failed to send response");
         }
 

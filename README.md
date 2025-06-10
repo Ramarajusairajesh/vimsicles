@@ -5,7 +5,7 @@ I used basic sockets to send data and used tar to archive and compress data (los
 
 
 The file transfer doesn't have encryption to improve performance .
-I tested with little TSL encryption wile transfering files over 2 GB it starts burning so holding on encryption for now.
+I tested with little TSL encryption wile transferring files over 2 GB it starts burning so holding on encryption for now.
 If you are running on Linux you need these to run this:
 
 
@@ -19,6 +19,8 @@ g++
 
 
 For Android
+I used gradle to build my packages into apk and used kotlin to create the app.
+Requirement :Android 8+ (API 25+)
 
 
 ``
@@ -39,8 +41,7 @@ tar
 
 Since tar come prebuild with windows 10 since 17063(from 2017) you don't need to install tar for this.
 If you don't have neither Cmake nor Ninja either download the exe's from there official sites 
-or use winget (or chocolate your wish) a terminal based package install for this I use winget to install these since it comes 
-prebuild with windows since 2021.
+or use winget (or chocolate your wish) a terminal based package install for this I use winget to install these since it comes  prebuild with windows since 2021.
 
 
 

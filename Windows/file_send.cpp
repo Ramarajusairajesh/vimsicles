@@ -2,6 +2,7 @@
 #include <iostream>
 #include <winsock2.h>
 #include <windows.h>
+#include <shlobj.h>
 #include <string>
 #include <vector>
 #include <filesystem>
@@ -125,7 +126,7 @@ int main(int argc, char* argv[]) {
 
         // Send file info
         std::string fileInfo = archiveName + "|" + md5Hash;
-        if (send(sock, fileInfo.c_str(), fileInfo.length(), 0) == SOCKET_ERROR) {
+        if (send(sock, fileInfo.c_str(), static_cast<int>(fileInfo.length()), 0) == SOCKET_ERROR) {
             throw std::runtime_error("Failed to send file info");
         }
 
@@ -148,7 +149,7 @@ int main(int argc, char* argv[]) {
         char buffer[BUFFER_SIZE];
         while (file.good()) {
             file.read(buffer, BUFFER_SIZE);
-            if (send(sock, buffer, file.gcount(), 0) == SOCKET_ERROR) {
+            if (send(sock, buffer, static_cast<int>(file.gcount()), 0) == SOCKET_ERROR) {
                 throw std::runtime_error("Failed to send file data");
             }
         }

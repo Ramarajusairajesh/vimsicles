@@ -1,4 +1,0 @@
-/home/arch/Documents/vimsicles/Windows/build/CMakeFiles/sender.dir
-/home/arch/Documents/vimsicles/Windows/build/CMakeFiles/receiver.dir
-/home/arch/Documents/vimsicles/Windows/build/CMakeFiles/edit_cache.dir
-/home/arch/Documents/vimsicles/Windows/build/CMakeFiles/rebuild_cache.dir
