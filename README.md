@@ -9,28 +9,37 @@ I tested with little TSL encryption wile transfering files over 2 GB it starts b
 If you are running on Linux you need these to run this:
 
 
-``
+````
+```
+
 Cmake
+
 g++
-``
+````
+```
+```
 
 
 For Android
-
 
 
 ``
 Go to Releases and install the apk from there
 ``
 
-
 For windows you need 
 
-``
+```
+````
+```
 Cmake
+
 Ninja
+
 tar
-``
+````
+```
+```
 
 Since tar come prebuild with windows 10 since 17063(from 2017) you don't need to install tar for this.
 If you don't have neither Cmake nor Ninja either download the exe's from there official sites 
