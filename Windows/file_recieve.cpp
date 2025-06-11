@@ -107,30 +107,52 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Listen for connections
-    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
-        std::cerr << "Listen failed" << std::endl;
-        closesocket(serverSocket);
-        WSACleanup();
-        return 1;
+    // Set socket to non-blocking mode
+    u_long mode = 1;
+    if (ioctlsocket(serverSocket, FIONBIO, &mode) != 0) {
+        throw std::runtime_error("Failed to set non-blocking mode");
     }
 
     std::cout << "Waiting for connection on port " << port << "..." << std::endl;
+    
+    // Wait for connection with timeout
+    fd_set readSet;
+    FD_ZERO(&readSet);
+    FD_SET(serverSocket, &readSet);
+    
+    struct timeval timeout;
+    timeout.tv_sec = 30;  // 30 second timeout
+    timeout.tv_usec = 0;
+    
+    int result = select(0, &readSet, NULL, NULL, &timeout);
+    if (result == 0) {
+        throw std::runtime_error("Connection timeout");
+    } else if (result == SOCKET_ERROR) {
+        throw std::runtime_error("Select failed");
+    }
 
-    // Accept connection
-    SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
+    SOCKET clientSocket = accept(serverSocket, NULL, NULL);
     if (clientSocket == INVALID_SOCKET) {
-        std::cerr << "Accept failed" << std::endl;
-        closesocket(serverSocket);
-        WSACleanup();
-        return 1;
+        throw std::runtime_error("Failed to accept connection");
+    }
+
+    std::cout << "Client connected!" << std::endl;
+
+    // Set client socket to blocking mode
+    mode = 0;
+    if (ioctlsocket(clientSocket, FIONBIO, &mode) != 0) {
+        closesocket(clientSocket);
+        throw std::runtime_error("Failed to set blocking mode");
     }
 
     try {
         // Receive file info
         char buffer[BUFFER_SIZE] = {0};
+        std::cout << "Waiting for data..." << std::endl;
         int bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE - 1, 0);
         if (bytesReceived == SOCKET_ERROR) {
+            int error = WSAGetLastError();
+            std::cerr << "Failed to receive file info. Error code: " << error << std::endl;
             throw std::runtime_error("Failed to receive file info");
         }
 
@@ -148,8 +170,15 @@ int main(int argc, char* argv[]) {
         // Convert buffer to string and remove any trailing whitespace
         std::string fileInfo(buffer);
         std::cout << "Raw string before trimming: '" << fileInfo << "'" << std::endl;
+        
+        // Remove any null characters and whitespace
+        fileInfo.erase(std::remove(fileInfo.begin(), fileInfo.end(), '\0'), fileInfo.end());
         fileInfo.erase(fileInfo.find_last_not_of(" \n\r\t") + 1);
         std::cout << "String after trimming: '" << fileInfo << "'" << std::endl;
+
+        if (fileInfo.empty()) {
+            throw std::runtime_error("Received empty file info");
+        }
 
         // Parse metadata: type|filename|md5
         size_t firstSeparator = fileInfo.find('|');

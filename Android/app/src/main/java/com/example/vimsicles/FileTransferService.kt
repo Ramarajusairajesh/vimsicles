@@ -9,6 +9,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import java.io.*
+import java.net.InetSocketAddress
 import java.net.Socket
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
@@ -53,8 +54,14 @@ class FileTransferService : Service() {
 
         transferJob = CoroutineScope(Dispatchers.IO).launch {
             try {
-                val socket = Socket(ip, port)
-                isRunning.set(true)
+                val socket = Socket()
+                Log.d(TAG, "Attempting to connect to $ip:$port")
+                socket.connect(InetSocketAddress(ip, port), 5000)
+                Log.d(TAG, "Connected successfully")
+
+                val dataOutputStream = DataOutputStream(socket.getOutputStream())
+                val dataInputStream = DataInputStream(socket.getInputStream())
+                Log.d(TAG, "Streams initialized")
 
                 // Send archive name and MD5 first
                 val archiveName = "transfer_${System.currentTimeMillis()}.tar.gz"
@@ -66,40 +73,48 @@ class FileTransferService : Service() {
                 val metadata = "${type}|${archiveName}|${md5}\n"
                 
                 // Send metadata using DataOutputStream
-                val dataOutputStream = DataOutputStream(socket.getOutputStream())
-                dataOutputStream.writeBytes(metadata)
-                dataOutputStream.flush()
-
-                // Wait for HELLO response
-                val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-                val response = reader.readLine()
-
-                if (response == "HELLO") {
-                    // Start sending the file
-                    val fileInputStream = FileInputStream(tempFile)
-                    val outputStream = socket.getOutputStream()
-                    val buffer = ByteArray(8192)
-                    var bytesRead: Int
-                    var totalBytesRead = 0L
-
-                    updateNotification("Preparing to send...", 0)
-
-                    while (fileInputStream.read(buffer).also { bytesRead = it } != -1) {
-                        outputStream.write(buffer, 0, bytesRead)
-                        totalBytesRead += bytesRead
-                        val progress = (totalBytesRead * 100 / currentFileSize).toInt()
-                        updateProgress(progress)
-                    }
-
-                    fileInputStream.close()
-                    outputStream.flush()
-                    tempFile.delete()
-                    updateNotification("Transfer completed", 100)
-                } else {
-                    throw IOException("Connection rejected by receiver")
+                Log.d(TAG, "Preparing to send file info: '$metadata'")
+                Log.d(TAG, "File info length: ${metadata.length}")
+                Log.d(TAG, "File info bytes: ${metadata.toByteArray().joinToString(", ") { it.toString(16) }}")
+                
+                try {
+                    // Write metadata as bytes to ensure proper encoding
+                    dataOutputStream.write(metadata.toByteArray())
+                    dataOutputStream.flush()
+                    Log.d(TAG, "File info sent successfully")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error sending file info", e)
+                    throw e
                 }
 
-                socket.close()
+                // Wait for HELLO response
+                Log.d(TAG, "Waiting for server response...")
+                val response = dataInputStream.readLine()
+                Log.d(TAG, "Received response: '$response'")
+                if (response != "HELLO") {
+                    throw IOException("Invalid response from server: $response")
+                }
+
+                // Start sending the file
+                val fileInputStream = FileInputStream(tempFile)
+                val outputStream = socket.getOutputStream()
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                var totalBytesRead = 0L
+
+                updateNotification("Preparing to send...", 0)
+
+                while (fileInputStream.read(buffer).also { bytesRead = it } != -1) {
+                    outputStream.write(buffer, 0, bytesRead)
+                    totalBytesRead += bytesRead
+                    val progress = (totalBytesRead * 100 / currentFileSize).toInt()
+                    updateProgress(progress)
+                }
+
+                fileInputStream.close()
+                outputStream.flush()
+                tempFile.delete()
+                updateNotification("Transfer completed", 100)
             } catch (e: Exception) {
                 Log.e(TAG, "Error during transfer: ${e.message}")
                 updateNotification("Error: ${e.message}", 0)
