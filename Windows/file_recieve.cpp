@@ -8,6 +8,7 @@
 #include <sstream>
 #include <iomanip>
 #include <openssl/evp.h>
+#include <algorithm>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -133,17 +134,46 @@ int main(int argc, char* argv[]) {
             throw std::runtime_error("Failed to receive file info");
         }
 
+        // Debug logging
+        std::cout << "Received " << bytesReceived << " bytes" << std::endl;
+        std::cout << "Raw buffer contents (hex): ";
+        for (int i = 0; i < bytesReceived; i++) {
+            printf("%02X ", (unsigned char)buffer[i]);
+        }
+        std::cout << std::endl;
+
+        // Ensure null termination
+        buffer[bytesReceived] = '\0';
+
+        // Convert buffer to string and remove any trailing whitespace
         std::string fileInfo(buffer);
-        size_t separatorPos = fileInfo.find('|');
-        if (separatorPos == std::string::npos) {
+        std::cout << "Raw string before trimming: '" << fileInfo << "'" << std::endl;
+        fileInfo.erase(fileInfo.find_last_not_of(" \n\r\t") + 1);
+        std::cout << "String after trimming: '" << fileInfo << "'" << std::endl;
+
+        // Parse metadata: type|filename|md5
+        size_t firstSeparator = fileInfo.find('|');
+        size_t secondSeparator = fileInfo.find('|', firstSeparator + 1);
+        
+        if (firstSeparator == std::string::npos || secondSeparator == std::string::npos) {
+            std::cerr << "Invalid metadata format. Separators not found." << std::endl;
+            std::cerr << "First separator position: " << firstSeparator << std::endl;
+            std::cerr << "Second separator position: " << secondSeparator << std::endl;
             throw std::runtime_error("Invalid file info format");
         }
 
-        std::string filename = fileInfo.substr(0, separatorPos);
-        std::string expectedMD5 = fileInfo.substr(separatorPos + 1);
+        std::string type = fileInfo.substr(0, firstSeparator);
+        std::string filename = fileInfo.substr(firstSeparator + 1, secondSeparator - firstSeparator - 1);
+        std::string expectedMD5 = fileInfo.substr(secondSeparator + 1);
 
-        // Send hello response
-        const char* response = "hello";
+        std::cout << "Parsed metadata:" << std::endl;
+        std::cout << "  Type: '" << type << "'" << std::endl;
+        std::cout << "  Filename: '" << filename << "'" << std::endl;
+        std::cout << "  MD5: '" << expectedMD5 << "'" << std::endl;
+
+        // Send HELLO response (matching Android's expected format)
+        const char* response = "HELLO\n";
+        std::cout << "Sending response: '" << response << "'" << std::endl;
         if (send(clientSocket, response, static_cast<int>(strlen(response)), 0) == SOCKET_ERROR) {
             throw std::runtime_error("Failed to send response");
         }
@@ -174,11 +204,20 @@ int main(int argc, char* argv[]) {
             throw std::runtime_error("MD5 verification failed");
         }
 
-        // Extract archive
-        extractArchive(filepath, downloadDir);
-        std::filesystem::remove(filepath);
-
-        std::cout << "File received and extracted successfully!" << std::endl;
+        // Handle based on type
+        if (type == "folder") {
+            // Extract archive
+            extractArchive(filepath, downloadDir);
+            std::filesystem::remove(filepath);
+            std::cout << "Folder received and extracted successfully!" << std::endl;
+        } else if (type == "file") {
+            // Move file to final location
+            std::string finalPath = downloadDir + "/" + filename;
+            std::filesystem::rename(filepath, finalPath);
+            std::cout << "File received successfully!" << std::endl;
+        } else {
+            throw std::runtime_error("Unknown file type");
+        }
 
         // Cleanup
         closesocket(clientSocket);

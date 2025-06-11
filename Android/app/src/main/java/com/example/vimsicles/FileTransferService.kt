@@ -62,9 +62,13 @@ class FileTransferService : Service() {
                 val md5 = calculateMD5(tempFile)
                 currentFileSize = tempFile.length()
 
-                val writer = PrintWriter(socket.getOutputStream(), true)
                 val type = if (uris.size > 1) "folder" else "file"
-                writer.println("${type}|${archiveName}|${md5}")
+                val metadata = "${type}|${archiveName}|${md5}\n"
+                
+                // Send metadata using DataOutputStream
+                val dataOutputStream = DataOutputStream(socket.getOutputStream())
+                dataOutputStream.writeBytes(metadata)
+                dataOutputStream.flush()
 
                 // Wait for HELLO response
                 val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
