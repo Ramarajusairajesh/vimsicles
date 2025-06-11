@@ -7,7 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -20,20 +20,36 @@ std::string calculateMD5(const std::string& filename) {
         throw std::runtime_error("Cannot open file for MD5 calculation");
     }
 
-    MD5_CTX md5Context;
-    MD5_Init(&md5Context);
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx) {
+        throw std::runtime_error("Failed to create MD5 context");
+    }
+
+    if (!EVP_DigestInit_ex(ctx, EVP_md5(), nullptr)) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("Failed to initialize MD5 context");
+    }
 
     char buffer[BUFFER_SIZE];
     while (file.good()) {
         file.read(buffer, BUFFER_SIZE);
-        MD5_Update(&md5Context, buffer, file.gcount());
+        if (!EVP_DigestUpdate(ctx, buffer, file.gcount())) {
+            EVP_MD_CTX_free(ctx);
+            throw std::runtime_error("Failed to update MD5 context");
+        }
     }
 
-    unsigned char digest[MD5_DIGEST_LENGTH];
-    MD5_Final(digest, &md5Context);
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int digest_len;
+    if (!EVP_DigestFinal_ex(ctx, digest, &digest_len)) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("Failed to finalize MD5 context");
+    }
+
+    EVP_MD_CTX_free(ctx);
 
     std::stringstream ss;
-    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+    for (unsigned int i = 0; i < digest_len; i++) {
         ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(digest[i]);
     }
     return ss.str();
