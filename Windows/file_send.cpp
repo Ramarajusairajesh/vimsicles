@@ -12,8 +12,7 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
-#include <openssl/md5.h>
-#include <nlohmann/json.hpp>
+#include <openssl/evp.h>
 
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "shell32.lib")
@@ -23,28 +22,42 @@
 #define BUFFER_SIZE 65536
 #define DEFAULT_PORT 8080
 
-using json = nlohmann::json;
-
 std::string calculateMD5(const std::string& filename) {
     std::ifstream file(filename, std::ios::binary);
     if (!file) {
         throw std::runtime_error("Cannot open file for MD5 calculation");
     }
 
-    MD5_CTX md5Context;
-    MD5_Init(&md5Context);
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx) {
+        throw std::runtime_error("Failed to create MD5 context");
+    }
+
+    if (!EVP_DigestInit_ex(ctx, EVP_md5(), nullptr)) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("Failed to initialize MD5 context");
+    }
 
     char buffer[BUFFER_SIZE];
     while (file.good()) {
         file.read(buffer, BUFFER_SIZE);
-        MD5_Update(&md5Context, buffer, file.gcount());
+        if (!EVP_DigestUpdate(ctx, buffer, file.gcount())) {
+            EVP_MD_CTX_free(ctx);
+            throw std::runtime_error("Failed to update MD5 context");
+        }
     }
 
-    unsigned char digest[MD5_DIGEST_LENGTH];
-    MD5_Final(digest, &md5Context);
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int digest_len;
+    if (!EVP_DigestFinal_ex(ctx, digest, &digest_len)) {
+        EVP_MD_CTX_free(ctx);
+        throw std::runtime_error("Failed to finalize MD5 context");
+    }
+
+    EVP_MD_CTX_free(ctx);
 
     std::stringstream ss;
-    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+    for (unsigned int i = 0; i < digest_len; i++) {
         ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(digest[i]);
     }
     return ss.str();
@@ -129,26 +142,6 @@ std::string createArchive(const std::vector<std::string>& paths) {
     return archiveName;
 }
 
-json createMetadata(const std::vector<std::string>& paths, const std::string& archiveName, const std::string& md5Hash) {
-    json metadata;
-    metadata["archive_name"] = archiveName;
-    metadata["md5_hash"] = md5Hash;
-    metadata["total_files"] = paths.size();
-    metadata["files"] = json::array();
-
-    for (const auto& path : paths) {
-        json fileInfo;
-        fileInfo["path"] = path;
-        fileInfo["name"] = std::filesystem::path(path).filename().string();
-        fileInfo["is_directory"] = std::filesystem::is_directory(path);
-        fileInfo["size"] = std::filesystem::is_directory(path) ? 0 : std::filesystem::file_size(path);
-        fileInfo["last_modified"] = std::filesystem::last_write_time(path).time_since_epoch().count();
-        metadata["files"].push_back(fileInfo);
-    }
-
-    return metadata;
-}
-
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <ip_address> [port]" << std::endl;
@@ -197,29 +190,23 @@ int main(int argc, char* argv[]) {
         std::string archiveName = createArchive(selectedPaths);
         std::string md5Hash = calculateMD5(archiveName);
 
-        // Create and send metadata
-        json metadata = createMetadata(selectedPaths, archiveName, md5Hash);
-        std::string metadataStr = metadata.dump();
-        
-        // Send metadata length first
-        uint32_t metadataLength = static_cast<uint32_t>(metadataStr.length());
-        if (send(sock, reinterpret_cast<char*>(&metadataLength), sizeof(metadataLength), 0) == SOCKET_ERROR) {
-            throw std::runtime_error("Failed to send metadata length");
-        }
+        // Determine if this is a folder or single file
+        std::string type = selectedPaths.size() > 1 ? "folder" : "file";
 
         // Send metadata
-        if (send(sock, metadataStr.c_str(), static_cast<int>(metadataStr.length()), 0) == SOCKET_ERROR) {
+        std::string metadata = type + "|" + archiveName + "|" + md5Hash;
+        if (send(sock, metadata.c_str(), metadata.length(), 0) == SOCKET_ERROR) {
             throw std::runtime_error("Failed to send metadata");
         }
 
-        // Wait for hello response
+        // Wait for HELLO response
         char response[6] = {0};
         if (recv(sock, response, 5, 0) == SOCKET_ERROR) {
             throw std::runtime_error("Failed to receive response");
         }
 
         if (std::string(response) != "hello") {
-            throw std::runtime_error("Invalid response from server");
+            throw std::runtime_error("Connection rejected by receiver");
         }
 
         // Send file
@@ -231,18 +218,18 @@ int main(int argc, char* argv[]) {
         char buffer[BUFFER_SIZE];
         while (file.good()) {
             file.read(buffer, BUFFER_SIZE);
-            if (send(sock, buffer, static_cast<int>(file.gcount()), 0) == SOCKET_ERROR) {
-                throw std::runtime_error("Failed to send file data");
+            if (send(sock, buffer, file.gcount(), 0) == SOCKET_ERROR) {
+                throw std::runtime_error("Failed to send file");
             }
         }
 
-        // Cleanup
+        // Clean up
         file.close();
         std::filesystem::remove(archiveName);
         closesocket(sock);
         WSACleanup();
 
-        std::cout << "Files sent successfully!" << std::endl;
+        std::cout << "File(s) sent successfully!" << std::endl;
         return 0;
 
     } catch (const std::exception& e) {
