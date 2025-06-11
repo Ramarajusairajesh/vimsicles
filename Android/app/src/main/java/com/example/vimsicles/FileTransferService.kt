@@ -63,8 +63,8 @@ class FileTransferService : Service() {
                 currentFileSize = tempFile.length()
 
                 val writer = PrintWriter(socket.getOutputStream(), true)
-                writer.println(archiveName)
-                writer.println(md5)
+                val type = if (uris.size > 1) "folder" else "file"
+                writer.println("${type}|${archiveName}|${md5}")
 
                 // Wait for HELLO response
                 val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
